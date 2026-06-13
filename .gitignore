@@ -1,2 +1,22 @@
-__pycache__
+__pycache__/
+*.py[cod]
+*.pyo
+*.log
+.venv/
+venv/
+env/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+
+# 配置与凭据
 config.yaml
+bilibili-agent/storage/
+
+# Node / 前端依赖
+node_modules/
+bilibili-agent/node_modules/
+
+# 系统文件
+.DS_Store
+Thumbs.db
