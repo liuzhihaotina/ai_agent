@@ -1,0 +1,11 @@
+{
+  "name": "task-agent",
+  "version": "1.0.0",
+  "type": "module",
+  "dependencies": {
+    "playwright": "^1.45.0"
+  },
+  "scripts": {
+    "update": "node src/cli.js"
+  }
+}
