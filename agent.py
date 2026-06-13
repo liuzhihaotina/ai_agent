@@ -8,6 +8,7 @@ import json
 import os
 import subprocess
 import sys
+import unicodedata
 from pathlib import Path
 
 import yaml
@@ -18,19 +19,59 @@ from rich.panel import Panel
 
 
 def read_user_input(prompt: str) -> str:
-    """逐字符读取用户输入，Windows 下采用整行重画，退格只删一个字符。"""
+    """读取用户输入；优先使用 prompt_toolkit 以兼容 Git Bash。"""
+
+    try:
+        from prompt_toolkit import prompt as pt_prompt
+        from prompt_toolkit.enums import EditingMode
+        from prompt_toolkit.key_binding import KeyBindings
+
+        # 强制 Emacs 模式，确保 Ctrl+A / Ctrl+E 在 Git Bash 里生效
+        bindings = KeyBindings()
+
+        @bindings.add("c-c")
+        def _(event):
+            raise KeyboardInterrupt
+
+        return pt_prompt(
+            prompt,
+            key_bindings=bindings,
+            editing_mode=EditingMode.EMACS,
+            mouse_support=False,
+        )
+    except Exception:
+        pass
+
+    def char_display_width(ch: str) -> int:
+        if unicodedata.combining(ch):
+            return 0
+        if unicodedata.east_asian_width(ch) in ("W", "F"):
+            return 2
+        return 1
+
+    def text_display_width(text: str) -> int:
+        return sum(char_display_width(ch) for ch in text)
 
     if os.name == "nt":
         try:
             import msvcrt
 
             buffer = []
+            cursor = 0
             pending_high_surrogate = None
 
             def redraw() -> None:
-                rendered = prompt + "".join(buffer)
-                # 清空整行后重画，避免中文/emoji 删除错位
-                sys.stdout.write("\r\x1b[2K" + rendered)
+                rendered_before = prompt + "".join(buffer[:cursor])
+                rendered_full = prompt + "".join(buffer)
+                before_width = text_display_width(rendered_before)
+                full_width = text_display_width(rendered_full)
+                pad = max(0, full_width - before_width)
+                sys.stdout.write("\r\x1b[2K" + rendered_full)
+                if pad:
+                    sys.stdout.write(" " * pad)
+                back = max(0, full_width - before_width)
+                if back:
+                    sys.stdout.write("\b" * back)
                 sys.stdout.flush()
 
             sys.stdout.write(prompt)
@@ -47,17 +88,33 @@ def read_user_input(prompt: str) -> str:
                 if ch == "\x03":
                     raise KeyboardInterrupt
 
+                if ch == "\x01":
+                    cursor = 0
+                    redraw()
+                    continue
+
+                if ch == "\x05":
+                    cursor = len(buffer)
+                    redraw()
+                    continue
+
                 if ch in ("\b", "\x7f"):
                     if pending_high_surrogate is not None:
                         pending_high_surrogate = None
-                    elif buffer:
-                        buffer.pop()
+                    elif cursor > 0:
+                        cursor -= 1
+                        buffer.pop(cursor)
                         redraw()
                     continue
 
                 if ch in ("\x00", "\xe0"):
-                    # 功能键前缀，忽略后续扩展键码
-                    msvcrt.getwch()
+                    key = msvcrt.getwch()
+                    if key == "K" and cursor > 0:  # 左箭头
+                        cursor -= 1
+                        redraw()
+                    elif key == "M" and cursor < len(buffer):  # 右箭头
+                        cursor += 1
+                        redraw()
                     continue
 
                 code_point = ord(ch)
@@ -72,12 +129,12 @@ def read_user_input(prompt: str) -> str:
                         ch = chr((high << 10) + low + 0x10000)
                         pending_high_surrogate = None
                     else:
-                        # 孤立低代理项，忽略
                         continue
                 else:
                     pending_high_surrogate = None
 
-                buffer.append(ch)
+                buffer.insert(cursor, ch)
+                cursor += 1
                 redraw()
 
             return "".join(buffer)
