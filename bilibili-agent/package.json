@@ -9,6 +9,7 @@
   },
   "scripts": {
     "login": "node src/login.js",
-    "start": "node src/index.js"
+    "start": "node src/index.js",
+    "search": "node src/cli.js"
   }
 }

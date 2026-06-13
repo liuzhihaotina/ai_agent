@@ -3,16 +3,13 @@ import fs from "fs";
 
 const AUTH_PATH = "./storage/auth.json";
 
-export async function launchBrowser() {
+export async function launchBrowser({ headless = false } = {}) {
   const browser = await chromium.launch({
-    headless: false // 登录时必须可视化
+    headless
   });
 
   const context = fs.existsSync(AUTH_PATH)
-    ? await chromium.launchPersistentContext("", {
-        headless: false,
-        storageState: AUTH_PATH
-      })
+    ? await browser.newContext({ storageState: AUTH_PATH })
     : await browser.newContext();
 
   const page = await context.newPage();

@@ -12,6 +12,7 @@ AI Agent 自搭建
 - 编辑文件
 - 列出目录
 - 执行终端命令
+- 调用 `bilibili_search` 搜索 B 站
 - 支持 OpenAI 兼容接口
 - 项目脚本按用途分目录管理
 
@@ -20,6 +21,7 @@ AI Agent 自搭建
 ```text
 ai_agent/
 ├── agent.py               # 主入口：AI Agent 命令行程序
+├── bilibili-agent/        # 子项目：B 站登录/搜索自动化
 ├── config.yaml            # 默认配置
 ├── requirements.txt       # Python 依赖
 ├── README.md              # 使用说明
@@ -40,6 +42,22 @@ ai_agent/
 
 ```bash
 pip install -r requirements.txt
+```
+
+## B 站子项目依赖
+
+如果你要使用 B 站搜索功能，请先进入子项目安装依赖：
+
+```bash
+cd bilibili-agent
+npm install
+npx playwright install
+```
+
+如需先手动登录一次：
+
+```bash
+npm run login
 ```
 
 ## 配置
@@ -75,8 +93,11 @@ set AGENT_MODEL=gpt-4o
 ## 使用方法
 
 1. 安装依赖
-2. 配置 `config.yaml` 或环境变量
-3. 启动程序（Agent 会在任务完成后自动结束，不需要强制跑满迭代次数）：
+2. 进入 `bilibili-agent/` 执行 `npm install`
+3. 进入 `bilibili-agent/` 执行 `npx playwright install`
+4. 如需登录，先运行 `npm run login`
+5. 配置 `config.yaml` 或环境变量
+6. 启动程序（Agent 会在任务完成后自动结束，不需要强制跑满迭代次数）：
 
 主程序入口是根目录下的 `agent.py`，其余 `.py` 工具脚本已整理到 `scripts/pdf/`。
 
@@ -88,6 +109,20 @@ python agent.py
 
 ```bash
 python agent.py config.yaml
+```
+
+## B 站搜索
+
+在主程序里，你可以直接让 Agent 调用 `bilibili_search`，例如：
+
+- 帮我在 B 站搜索“人工智能”并返回前 5 条结果
+- 调用 bilibili_search 搜索关键词“Python 教程”
+
+也可以直接使用子项目命令：
+
+```bash
+cd bilibili-agent
+npm run search -- "人工智能" 5
 ```
 
 ## 交互命令

@@ -145,6 +145,28 @@ TOOLS = [
     {
         "type": "function",
         "function": {
+            "name": "bilibili_search",
+            "description": "调用 bilibili-agent 子项目，通过 Node.js 在 B 站搜索关键词并返回结果。建议先在子项目中完成一次登录。",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "keyword": {
+                        "type": "string",
+                        "description": "B 站搜索关键词",
+                    },
+                    "max_results": {
+                        "type": "integer",
+                        "description": "返回结果数量上限",
+                        "default": 10,
+                    },
+                },
+                "required": ["keyword"],
+            },
+        },
+    },
+    {
+        "type": "function",
+        "function": {
             "name": "list_directory",
             "description": "列出指定目录中的文件和子目录。",
             "parameters": {
@@ -278,6 +300,40 @@ class ToolExecutor:
         except Exception as e:
             return f"❌ 列出目录失败: {e}"
 
+    def bilibili_search(self, keyword: str, max_results: int = 10) -> str:
+        """调用 bilibili-agent 子项目执行 B 站搜索"""
+        try:
+            project_dir = Path(__file__).parent / "bilibili-agent"
+            cli_path = project_dir / "src" / "cli.js"
+
+            if not cli_path.exists():
+                return f"❌ 找不到 B 站搜索入口: {cli_path}"
+
+            result = subprocess.run(
+                ["node", str(cli_path), keyword, str(max_results)],
+                cwd=str(project_dir),
+                capture_output=True,
+                text=True,
+                encoding="utf-8",
+                errors="replace",
+                timeout=300,
+            )
+
+            output = (result.stdout or "").strip()
+            error_output = (result.stderr or "").strip()
+
+            if result.returncode != 0:
+                detail = error_output or output or f"返回码 {result.returncode}"
+                return f"❌ B 站搜索失败: {detail}"
+
+            return output or "(无返回结果)"
+        except FileNotFoundError:
+            return "❌ 未找到 node 命令，请先安装 Node.js 并确保 node 可用"
+        except subprocess.TimeoutExpired:
+            return "❌ B 站搜索超时 (300秒)"
+        except Exception as e:
+            return f"❌ B 站搜索失败: {e}"
+
     def dispatch(self, tool_name: str, arguments: dict) -> str:
         """分发工具调用"""
         handlers = {
@@ -285,6 +341,7 @@ class ToolExecutor:
             "write_file": self.write_file,
             "edit_file": self.edit_file,
             "execute_command": self.execute_command,
+            "bilibili_search": self.bilibili_search,
             "list_directory": self.list_directory,
         }
         handler = handlers.get(tool_name)
@@ -304,7 +361,8 @@ SYSTEM_PROMPT = """你是一个强大的 AI 助手，可以帮助用户完成各
 2. **写入文件** (write_file) - 创建或覆盖文件
 3. **编辑文件** (edit_file) - 精确替换文件中的指定内容
 4. **执行命令** (execute_command) - 在终端执行 shell 命令
-5. **列出目录** (list_directory) - 查看目录结构
+5. **B 站搜索** (bilibili_search) - 调用 bilibili-agent 子项目登录态执行搜索并返回结果
+6. **列出目录** (list_directory) - 查看目录结构
 
 工作原则：
 - 先了解当前状态再行动 (先读取再修改)
@@ -460,7 +518,8 @@ def main():
                         "  /quit   - 退出程序\n\n"
                         "[bold]功能:[/bold]\n\n"
                         "  直接用自然语言描述你的需求即可。\n"
-                        "  Agent 可以读写文件、执行命令来帮你完成任务。",
+                        "  Agent 可以读写文件、执行命令，\n"
+                        "  也可以调用 bilibili_search 帮你搜索 B 站并返回结果。",
                         title="帮助",
                         border_style="blue",
                     )
