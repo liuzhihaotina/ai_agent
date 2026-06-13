@@ -17,9 +17,80 @@ from rich.markdown import Markdown
 from rich.panel import Panel
 
 
+def read_user_input(prompt: str) -> str:
+    """逐字符读取用户输入，Windows 下采用整行重画，退格只删一个字符。"""
+
+    if os.name == "nt":
+        try:
+            import msvcrt
+
+            buffer = []
+            pending_high_surrogate = None
+
+            def redraw() -> None:
+                rendered = prompt + "".join(buffer)
+                # 清空整行后重画，避免中文/emoji 删除错位
+                sys.stdout.write("\r\x1b[2K" + rendered)
+                sys.stdout.flush()
+
+            sys.stdout.write(prompt)
+            sys.stdout.flush()
+
+            while True:
+                ch = msvcrt.getwch()
+
+                if ch in ("\r", "\n"):
+                    sys.stdout.write("\n")
+                    sys.stdout.flush()
+                    break
+
+                if ch == "\x03":
+                    raise KeyboardInterrupt
+
+                if ch in ("\b", "\x7f"):
+                    if pending_high_surrogate is not None:
+                        pending_high_surrogate = None
+                    elif buffer:
+                        buffer.pop()
+                        redraw()
+                    continue
+
+                if ch in ("\x00", "\xe0"):
+                    # 功能键前缀，忽略后续扩展键码
+                    msvcrt.getwch()
+                    continue
+
+                code_point = ord(ch)
+                if 0xD800 <= code_point <= 0xDBFF:
+                    pending_high_surrogate = ch
+                    continue
+
+                if 0xDC00 <= code_point <= 0xDFFF:
+                    if pending_high_surrogate is not None:
+                        high = ord(pending_high_surrogate) - 0xD800
+                        low = code_point - 0xDC00
+                        ch = chr((high << 10) + low + 0x10000)
+                        pending_high_surrogate = None
+                    else:
+                        # 孤立低代理项，忽略
+                        continue
+                else:
+                    pending_high_surrogate = None
+
+                buffer.append(ch)
+                redraw()
+
+            return "".join(buffer)
+        except ImportError:
+            pass
+
+    return input(prompt)
+
+
 # ============================================================
 # 配置加载
 # ============================================================
+
 
 def load_config(config_path: str = None) -> dict:
     """加载配置文件，支持环境变量覆盖"""
@@ -186,7 +257,7 @@ TOOLS = [
 
 # ============================================================
 # 工具实现
-# ================================================
+# ============================================================
 
 
 class ToolExecutor:
@@ -352,7 +423,7 @@ class ToolExecutor:
 
 # ============================================================
 # Agent 主循环
-# ================================================
+# ============================================================
 
 SYSTEM_PROMPT = """你是一个强大的 AI 助手，可以帮助用户完成各种任务。
 
@@ -400,8 +471,8 @@ class AIAgent:
                 response = self.client.chat.completions.create(
                     model=self.model,
                     messages=self.messages,
-                tools=TOOLS,
-                tool_choice="auto",
+                    tools=TOOLS,
+                    tool_choice="auto",
                 )
             except Exception as e:
                 error_msg = f"❌ API 调用失败: {e}"
@@ -492,7 +563,7 @@ def main():
     while True:
         try:
             console.print()
-            user_input = input("👤 You > ").strip()
+            user_input = read_user_input("👤 You > ").strip()
         except (KeyboardInterrupt, EOFError):
             console.print("\n[yellow]👋 再见![/yellow]")
             break
