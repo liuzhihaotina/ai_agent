@@ -1,0 +1,14 @@
+{
+  "name": "bilibili-agent",
+  "version": "1.0.0",
+  "type": "module",
+  "dependencies": {
+    "playwright": "^1.45.0",
+    "express": "^4.19.2",
+    "dotenv": "^16.4.5"
+  },
+  "scripts": {
+    "login": "node src/login.js",
+    "start": "node src/index.js"
+  }
+}
