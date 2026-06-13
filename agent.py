@@ -17,17 +17,49 @@ from rich.markdown import Markdown
 from rich.panel import Panel
 
 
+HISTORY_FILE = Path.home() / ".ai_agent_history"
+HISTORY_MAX_ITEMS = 500
+
+
 # ============================================================
 # 输入处理
 # ============================================================
 
 
+def _load_history() -> list[str]:
+    try:
+        if HISTORY_FILE.exists():
+            return [line.rstrip("\n") for line in HISTORY_FILE.read_text(encoding="utf-8").splitlines() if line.strip()]
+    except Exception:
+        pass
+    return []
+
+
+def _append_history(entry: str) -> None:
+    entry = entry.strip()
+    if not entry:
+        return
+
+    try:
+        history = _load_history()
+        if history and history[-1] == entry:
+            return
+        history.append(entry)
+        history = history[-HISTORY_MAX_ITEMS:]
+        HISTORY_FILE.write_text("\n".join(history) + "\n", encoding="utf-8")
+    except Exception:
+        pass
+
+
 def read_user_input(prompt: str) -> str:
     """读取用户输入；优先使用 prompt_toolkit 以兼容 Git Bash。"""
+
+    history_items = _load_history()
 
     try:
         from prompt_toolkit import prompt as pt_prompt
         from prompt_toolkit.enums import EditingMode
+        from prompt_toolkit.history import FileHistory
         from prompt_toolkit.key_binding import KeyBindings
 
         bindings = KeyBindings()
@@ -41,6 +73,7 @@ def read_user_input(prompt: str) -> str:
             key_bindings=bindings,
             editing_mode=EditingMode.EMACS,
             mouse_support=False,
+            history=FileHistory(str(HISTORY_FILE)),
         )
     except Exception:
         pass
@@ -62,6 +95,8 @@ def read_user_input(prompt: str) -> str:
             buffer = []
             cursor = 0
             pending_high_surrogate = None
+            history_index = len(history_items)
+            draft_buffer = []
 
             def redraw() -> None:
                 rendered_before = prompt + "".join(buffer[:cursor])
@@ -77,6 +112,12 @@ def read_user_input(prompt: str) -> str:
                     sys.stdout.write("\b" * back)
                 sys.stdout.flush()
 
+            def load_history_entry(index: int) -> None:
+                nonlocal buffer, cursor
+                buffer = list(history_items[index])
+                cursor = len(buffer)
+                redraw()
+
             sys.stdout.write(prompt)
             sys.stdout.flush()
 
@@ -86,6 +127,8 @@ def read_user_input(prompt: str) -> str:
                 if ch in ("\r", "\n"):
                     sys.stdout.write("\n")
                     sys.stdout.flush()
+                    final_text = "".join(buffer)
+                    _append_history(final_text)
                     break
 
                 if ch == "\x03":
@@ -118,7 +161,25 @@ def read_user_input(prompt: str) -> str:
                     elif key == "M" and cursor < len(buffer):
                         cursor += 1
                         redraw()
+                    elif key == "H" and history_items:
+                        if history_index == len(history_items):
+                            draft_buffer = buffer.copy()
+                        if history_index > 0:
+                            history_index -= 1
+                            load_history_entry(history_index)
+                    elif key == "P" and history_items:
+                        if history_index < len(history_items) - 1:
+                            history_index += 1
+                            load_history_entry(history_index)
+                        elif history_index == len(history_items) - 1:
+                            history_index = len(history_items)
+                            buffer = draft_buffer.copy()
+                            cursor = len(buffer)
+                            redraw()
                     continue
+
+                history_index = len(history_items)
+                draft_buffer = []
 
                 code_point = ord(ch)
                 if 0xD800 <= code_point <= 0xDBFF:
@@ -144,7 +205,26 @@ def read_user_input(prompt: str) -> str:
         except ImportError:
             pass
 
-    return input(prompt)
+    try:
+        import readline
+
+        readline.set_history_length(HISTORY_MAX_ITEMS)
+        try:
+            readline.read_history_file(str(HISTORY_FILE))
+        except Exception:
+            pass
+
+        text = input(prompt)
+        _append_history(text)
+        try:
+            readline.write_history_file(str(HISTORY_FILE))
+        except Exception:
+            pass
+        return text
+    except Exception:
+        text = input(prompt)
+        _append_history(text)
+        return text
 
 
 # ============================================================
