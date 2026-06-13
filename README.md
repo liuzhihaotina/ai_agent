@@ -66,7 +66,11 @@ npm run login
 
 项目通过 `config.yaml` 进行配置，也支持使用环境变量覆盖。
 
-### 方式一：将config_your.yaml重命名为config.yaml并修改 `config.yaml` 
+### 方式一：修改 `config.yaml` 
+
+```bash
+cp config_your.yaml config.yaml
+```
 
 ```yaml
 base_url: "https://api.openai.com/v1"
