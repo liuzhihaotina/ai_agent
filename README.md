@@ -13,6 +13,8 @@ AI Agent 自搭建
 - 列出目录
 - 执行终端命令
 - 调用 `bilibili_search` 搜索 B 站
+- 调用 `csdn_search` 优先搜索你的 CSDN 博客知识库
+- 调用 `csdn_refresh` 重新抓取并重建 CSDN 本地数据库
 - 支持 OpenAI 兼容接口
 - 项目脚本按用途分目录管理
 

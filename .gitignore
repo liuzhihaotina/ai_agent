@@ -12,6 +12,8 @@ env/
 # 配置与凭据
 config.yaml
 bilibili-agent/storage/
+csdn-agent/storage/
+tmp/
 
 # Node / 前端依赖
 node_modules/

@@ -396,6 +396,36 @@ TOOLS = [
             },
         },
     },
+    {
+        "type": "function",
+        "function": {
+            "name": "csdn_search",
+            "description": "优先搜索本地 CSDN 知识库索引，返回相关博客内容片段。",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "keyword": {"type": "string", "description": "要搜索的关键词或问题"},
+                    "limit": {"type": "integer", "description": "返回结果数量上限", "default": 5},
+                },
+                "required": ["keyword"],
+            },
+        },
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "csdn_refresh",
+            "description": "重新抓取 CSDN 主页并构建本地知识库索引。",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "max_articles": {"type": "integer", "description": "最多抓取文章数量", "default": 30},
+                    "max_pages": {"type": "integer", "description": "最多遍历列表页数量", "default": 5},
+                },
+                "required": [],
+            },
+        },
+    },
 ]
 
 
@@ -513,7 +543,7 @@ class ToolExecutor:
         except Exception as e:
             return f"❌ 命令执行失败: {e}"
 
-    def list_directory(self, path: str = ".") -> str:
+    def list_directory(self, path: str = ".", **kwargs) -> str:
         try:
             p = Path(path).expanduser()
             if not p.exists():
@@ -529,6 +559,75 @@ class ToolExecutor:
             return "\n".join(lines) if lines else "(空目录)"
         except Exception as e:
             return f"❌ 列出目录失败: {e}"
+
+    def _load_csdn_store(self):
+        csdn_src = Path(__file__).parent / "csdn-agent" / "src"
+        if str(csdn_src) not in sys.path:
+            sys.path.insert(0, str(csdn_src))
+        from indexer import CSDNCrawler, CSDNStore, DEFAULT_HOME_URL
+
+        return CSDNCrawler, CSDNStore, DEFAULT_HOME_URL
+
+    def csdn_search(self, keyword: str, limit: int = 5) -> str:
+        try:
+            CSDNCrawler, CSDNStore, DEFAULT_HOME_URL = self._load_csdn_store()
+            store = CSDNStore()
+            results = store.search(keyword, limit=limit)
+
+            if not results:
+                existing_records = store.load()
+                if not existing_records:
+                    try:
+                        crawler = CSDNCrawler(home_url=DEFAULT_HOME_URL)
+                        records = crawler.build_index(max_articles=30, max_pages=5)
+                        store.save(records)
+                    except Exception:
+                        pass
+                    results = store.search(keyword, limit=limit)
+
+            if not results:
+                return "(CSDN 数据库中暂无匹配内容)"
+
+            lines = []
+            for idx, item in enumerate(results, start=1):
+                title = item.get("title", "无标题")
+                url = item.get("url", "")
+                summary = item.get("summary", "")
+                content = item.get("content", "")
+                snippet = summary or content[:260]
+                lines.append(f"[{idx}] {title}\nURL: {url}\n摘要: {snippet}")
+            return "\n\n".join(lines)
+        except Exception as e:
+            return f"❌ CSDN 搜索失败: {e}"
+
+    def csdn_refresh(self, max_articles: int = 30, max_pages: int = 5) -> str:
+        try:
+            CSDNCrawler, CSDNStore, DEFAULT_HOME_URL = self._load_csdn_store()
+            crawler = CSDNCrawler(home_url=DEFAULT_HOME_URL)
+            store = CSDNStore()
+            records = crawler.build_index(max_articles=max_articles, max_pages=max_pages)
+            store.save(records)
+            return f"✅ CSDN 索引已更新，共 {len(records)} 篇文章"
+        except Exception as e:
+            return f"❌ CSDN 索引更新失败: {e}"
+
+    def _build_csdn_context(self, user_input: str) -> str:
+        result = self.csdn_search(user_input, limit=5)
+        return (
+            "CSDN 数据库检索结果（回答时必须优先参考）：\n"
+            f"{result}\n\n"
+            "回答原则：如果数据库内容足够，就直接依据数据库回答；"
+            "如果数据库内容不足，再补充你的推理。"
+        )
+
+    def _build_csdn_context(self, user_input: str) -> str:
+        result = self.csdn_search(user_input, limit=5)
+        return (
+            "CSDN 数据库检索结果（回答时必须优先参考）：\n"
+            f"{result}\n\n"
+            "回答原则：如果数据库内容足够，就直接依据数据库回答；"
+            "如果数据库内容不足，再补充你的推理。"
+        )
 
     def bilibili_search(self, keyword: str, max_results: int = 10) -> str:
         try:
@@ -642,6 +741,8 @@ class ToolExecutor:
             "task_list": self.task_list,
             "task_update": self.task_update,
             "list_directory": self.list_directory,
+            "csdn_search": self.csdn_search,
+            "csdn_refresh": self.csdn_refresh,
         }
         handler = handlers.get(tool_name)
         if handler:
@@ -655,17 +756,27 @@ class ToolExecutor:
 
 SYSTEM_PROMPT = """你是一个强大的 AI 助手，可以帮助用户完成各种任务。
 
+特别规则：
+- 只要用户的问题可能和 CSDN 博客内容有关，必须优先使用 CSDN 知识库检索结果作为主要依据
+- 不要先通过本地仓库文件去猜测博客内容；如果 CSDN 数据库已有答案，就直接基于数据库内容回答
+- 只有在 CSDN 数据库没有足够信息时，才再结合一般知识进行推理补充
+
 你拥有以下能力：
 1. **读取文件** (read_file) - 查看任意文本文件的内容
 2. **写入文件** (write_file) - 创建或覆盖文件
 3. **编辑文件** (edit_file) - 精确替换文件中的指定内容
 4. **执行命令** (execute_command) - 在终端执行 shell 命令
-5. **B 站搜索** (bilibili_search) - 调用 bilibili-agent 子项目搜索并返回结果
-6. **任务列表** (task_list) - 访问 http://localhost:3000 列出任务及状态
-7. **任务状态更新** (task_update) - 访问 http://localhost:3000 更新任务状态
-8. **列出目录** (list_directory) - 查看目录结构
+5. **CSDN 搜索** (csdn_search) - 优先搜索本地 CSDN 知识库数据库
+6. **CSDN 刷新** (csdn_refresh) - 重新抓取 CSDN 博客主页并重建数据库
+7. **B 站搜索** (bilibili_search) - 调用 bilibili-agent 子项目搜索并返回结果
+8. **任务列表** (task_list) - 访问 http://localhost:3000 列出任务及状态
+9. **任务状态更新** (task_update) - 访问 http://localhost:3000 更新任务状态
+10. **列出目录** (list_directory) - 查看目录结构
 
 工作原则：
+- 用户提问时，必须优先查询 CSDN 知识库；先调用 csdn_search，再结合已有结果判断能否回答
+- 如果 CSDN 知识库已经足够回答问题，就直接基于数据库内容回答
+- 如果 CSDN 知识库没有足够信息，再由你自己推理、补充或给出其他可行方案
 - 先了解当前状态再行动 (先读取再修改)
 - 对于复杂任务，分步骤执行
 - 执行命令前考虑安全性
@@ -690,12 +801,17 @@ class AIAgent:
 
     def chat(self, user_input: str) -> str:
         self.messages.append({"role": "user", "content": user_input})
+        csdn_context = self._build_csdn_context(user_input)
 
         for _ in range(self.max_iterations):
             try:
+                request_messages = list(self.messages)
+                if csdn_context:
+                    request_messages.insert(-1, {"role": "system", "content": csdn_context})
+
                 response = self.client.chat.completions.create(
                     model=self.model,
-                    messages=self.messages,
+                    messages=request_messages,
                     tools=TOOLS,
                     tool_choice="auto",
                 )
@@ -730,6 +846,21 @@ class AIAgent:
                 self.messages.append({"role": "tool", "tool_call_id": tool_call.id, "content": result})
 
         return "⚠️ 达到最大迭代次数，已停止。"
+
+    def csdn_search(self, keyword: str, limit: int = 5) -> str:
+        return self.tool_executor.csdn_search(keyword, limit=limit)
+
+    def csdn_refresh(self, max_articles: int = 30, max_pages: int = 5) -> str:
+        return self.tool_executor.csdn_refresh(max_articles=max_articles, max_pages=max_pages)
+
+    def _build_csdn_context(self, user_input: str) -> str:
+        result = self.csdn_search(user_input, limit=5)
+        return (
+            "CSDN 数据库检索结果（回答时必须优先参考）：\n"
+            f"{result}\n\n"
+            "回答原则：如果数据库内容足够，就直接依据数据库回答；"
+            "如果数据库内容不足，再补充你的推理。"
+        )
 
     def reset(self):
         self.messages = [{"role": "system", "content": SYSTEM_PROMPT}]
