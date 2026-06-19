@@ -99,7 +99,9 @@ class ToolRegistry:
             [
                 p
                 for p in self.tools_dir.glob("*.py")
-                if p.is_file() and not p.name.startswith("_")
+                if p.is_file()
+                and not p.name.startswith("_")
+                and p.name != "__init__.py"
             ]
         )
 

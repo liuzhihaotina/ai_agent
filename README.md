@@ -28,6 +28,7 @@ ai_agent/
 ├── README.md           # 使用说明
 ├── .gitignore
 └── tools/              # 独立功能模块目录
+    ├── base.py         # 工具模板/基类
     ├── read_file.py
     ├── write_file.py
     ├── edit_file.py
@@ -104,46 +105,40 @@ python agent.py config.yaml
 
 ## 如何扩展新功能
 
-你只需要在 `tools/` 目录下新增一个 `.py` 文件，并实现一个 `register()` 函数即可。
+你只需要在 `tools/` 目录下新增一个 `.py` 文件，然后继承 `tools.base.BaseTool` 即可。
 
-### 推荐结构
+### 最小模板
 
 ```python
-from typing import Any
+from tools.base import BaseTool, register_tool
 
 
-def my_tool(arg1: str) -> str:
-    return "..."
-
-
-def register() -> dict[str, Any]:
-    return {
-        "tools": [
-            {
-                "type": "function",
-                "function": {
-                    "name": "my_tool",
-                    "description": "工具描述",
-                    "parameters": {
-                        "type": "object",
-                        "properties": {
-                            "arg1": {"type": "string"},
-                        },
-                        "required": ["arg1"],
-                    },
-                },
-            }
-        ],
-        "handlers": {"my_tool": my_tool},
-        "safety": {"my_tool": False},
+class MyTool(BaseTool):
+    name = "my_tool"
+    description = "工具描述"
+    properties = {
+        "arg1": {
+            "type": "string",
+            "description": "参数说明",
+        }
     }
+    required = ["arg1"]
+    dangerous = False
+
+    def run(self, arg1: str) -> str:
+        return f"got: {arg1}"
+
+
+def register() -> dict:
+    return register_tool(MyTool)
 ```
 
 ### 约定
 
-- `tools`：OpenAI function calling 的工具定义列表
-- `handlers`：工具名到 Python 函数的映射
-- `safety`：工具名到是否危险操作的映射
+- `BaseTool` 会自动生成 OpenAI function schema
+- `name / description / properties / required / dangerous` 只需要在类属性里声明
+- `run()` 只需要专注业务逻辑
+- `register_tool()` 会把类转换成 Agent 可加载的插件字典
 
 ### 删除或替换功能
 
@@ -151,7 +146,7 @@ def register() -> dict[str, Any]:
 - 替换某个工具：直接改对应模块文件
 - 新增某个工具：直接新增新模块文件
 
-不需要修改 `agent.py`。
+不需要修改 `agent.py`
 
 ## 当前建议
 
