@@ -17,6 +17,7 @@ AI Agent 自搭建。
 - `list_directory`：列出目录内容
 - `execute_command`：执行终端命令
 - `search_files`：在目录内递归搜索文件内容
+- `file_system`：文件系统工具集，包含复制、移动、删除、批量重命名
 
 ## 目录结构
 
@@ -34,7 +35,8 @@ ai_agent/
     ├── edit_file.py
     ├── list_directory.py
     ├── execute_command.py
-    └── search_files.py
+    ├── search_files.py
+    └── file_system.py  # 文件系统工具集
 ```
 
 ## 安装依赖
