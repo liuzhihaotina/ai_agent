@@ -20,6 +20,7 @@ AI Agent 自搭建。
 - `file_system`：文件系统工具集，包含复制、移动、删除、批量重命名
 - `code_analysis`：代码分析工具集，包含 Python 文件分析、定义扫描、符号查找
 - `project_management`：项目管理工具集，包含 Git 状态、分支、提交、差异摘要
+- `knowledge_retrieval`：知识检索工具集，包含目录摘要、Markdown 大纲、关键词搜索
 
 ## 目录结构
 
@@ -40,7 +41,8 @@ ai_agent/
     ├── search_files.py
     ├── file_system.py  # 文件系统工具集
     ├── code_analysis.py # 代码分析工具集
-    └── project_management.py # 项目管理工具集
+    ├── project_management.py # 项目管理工具集
+    └── knowledge_retrieval.py # 知识检索工具集
 ```
 
 ## 安装依赖
@@ -161,7 +163,7 @@ def register() -> dict:
 - 文件系统工具集：复制、移动、删除、批量重命名
 - 代码分析工具集：Python 文件结构分析、定义扫描、符号查找
 - 项目管理工具集：Git 状态、分支信息、变更摘要
-- 知识检索工具集：全文索引、目录总结、结构概览
+- 知识检索工具集：目录摘要、Markdown 大纲、关键词搜索
 - 自动化工具集：定时任务、批处理、环境检查
 
 ## 注意事项
