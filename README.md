@@ -18,6 +18,8 @@ AI Agent 自搭建。
 - `execute_command`：执行终端命令
 - `search_files`：在目录内递归搜索文件内容
 - `file_system`：文件系统工具集，包含复制、移动、删除、批量重命名
+- `code_analysis`：代码分析工具集，包含 Python 文件分析、定义扫描、符号查找
+- `project_management`：项目管理工具集，包含 Git 状态、分支、提交、差异摘要
 
 ## 目录结构
 
@@ -36,7 +38,9 @@ ai_agent/
     ├── list_directory.py
     ├── execute_command.py
     ├── search_files.py
-    └── file_system.py  # 文件系统工具集
+    ├── file_system.py  # 文件系统工具集
+    ├── code_analysis.py # 代码分析工具集
+    └── project_management.py # 项目管理工具集
 ```
 
 ## 安装依赖
@@ -155,7 +159,7 @@ def register() -> dict:
 如果你后续想继续增强这个 Agent，可以优先拆成这些方向：
 
 - 文件系统工具集：复制、移动、删除、批量重命名
-- 代码分析工具集：AST 分析、依赖搜索、接口提取
+- 代码分析工具集：Python 文件结构分析、定义扫描、符号查找
 - 项目管理工具集：Git 状态、分支信息、变更摘要
 - 知识检索工具集：全文索引、目录总结、结构概览
 - 自动化工具集：定时任务、批处理、环境检查
