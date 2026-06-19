@@ -21,6 +21,7 @@ AI Agent 自搭建。
 - `code_analysis`：代码分析工具集，包含 Python 文件分析、定义扫描、符号查找
 - `project_management`：项目管理工具集，包含 Git 状态、分支、提交、差异摘要
 - `knowledge_retrieval`：知识检索工具集，包含目录摘要、Markdown 大纲、关键词搜索
+- `automation`：自动化工具集，位于 `tools/automation/` 子目录下，包含环境快照、批量 Python 编译、批量文件预览，每个任务独立成文件，可单独删除、更新或新增
 
 ## 目录结构
 
@@ -42,7 +43,12 @@ ai_agent/
     ├── file_system.py  # 文件系统工具集
     ├── code_analysis.py # 代码分析工具集
     ├── project_management.py # 项目管理工具集
-    └── knowledge_retrieval.py # 知识检索工具集
+    ├── knowledge_retrieval.py # 知识检索工具集
+    └── automation/    # 自动化工具集（子目录，每个任务一个文件）
+        ├── __init__.py
+        ├── environment_snapshot.py
+        ├── batch_python_compile.py
+        └── batch_file_preview.py
 ```
 
 ## 安装依赖
@@ -164,7 +170,7 @@ def register() -> dict:
 - 代码分析工具集：Python 文件结构分析、定义扫描、符号查找
 - 项目管理工具集：Git 状态、分支信息、变更摘要
 - 知识检索工具集：目录摘要、Markdown 大纲、关键词搜索
-- 自动化工具集：定时任务、批处理、环境检查
+- 自动化工具集：环境快照、批量 Python 编译、批量文件预览（位于 `tools/automation/` 子目录）
 
 ## 注意事项
 

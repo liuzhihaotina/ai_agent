@@ -95,18 +95,26 @@ class ToolRegistry:
             )
             return
 
-        module_files = sorted(
-            [
-                p
-                for p in self.tools_dir.glob("*.py")
-                if p.is_file()
-                and not p.name.startswith("_")
-                and p.name != "__init__.py"
-            ]
-        )
+        module_paths: list[Path] = []
+        package_dirs = {
+            p.stem
+            for p in self.tools_dir.iterdir()
+            if p.is_dir() and (p / "__init__.py").is_file() and not p.name.startswith("_")
+        }
 
-        for module_path in module_files:
+        for path in sorted(self.tools_dir.iterdir()):
+            if path.name.startswith("_"):
+                continue
+            if path.is_file() and path.suffix == ".py" and path.name != "__init__.py":
+                if path.stem in package_dirs:
+                    continue
+                module_paths.append(path)
+            elif path.is_dir() and (path / "__init__.py").is_file():
+                module_paths.append(path / "__init__.py")
+
+        for module_path in module_paths:
             self._load_module(module_path)
+
 
     def _load_module(self, module_path: Path) -> None:
         module_name = f"agent_tool_{module_path.stem}"
