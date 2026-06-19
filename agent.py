@@ -102,10 +102,12 @@ class ToolRegistry:
             if p.is_dir() and (p / "__init__.py").is_file() and not p.name.startswith("_")
         }
 
+        skip_files = {"__init__.py", "base.py"}
+
         for path in sorted(self.tools_dir.iterdir()):
             if path.name.startswith("_"):
                 continue
-            if path.is_file() and path.suffix == ".py" and path.name != "__init__.py":
+            if path.is_file() and path.suffix == ".py" and path.name not in skip_files:
                 if path.stem in package_dirs:
                     continue
                 module_paths.append(path)
@@ -127,6 +129,7 @@ class ToolRegistry:
                 return
 
             module = importlib.util.module_from_spec(spec)
+            sys.modules[module_name] = module
             spec.loader.exec_module(module)
         except Exception as exc:
             self.console.print(
