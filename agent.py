@@ -18,6 +18,8 @@ from typing import Any, Callable
 
 import yaml
 from openai import OpenAI
+from prompt_toolkit import PromptSession
+from prompt_toolkit.history import FileHistory
 from rich.console import Console
 from rich.markdown import Markdown
 from rich.panel import Panel
@@ -281,6 +283,8 @@ class AIAgent:
         self.client = OpenAI(base_url=config["base_url"], api_key=config["api_key"])
         self.model = config["model"]
         self.max_iterations = config["max_iterations"]
+        history_path = Path.home() / ".ai_agent_history"
+        self.input_session = PromptSession(history=FileHistory(str(history_path)))
 
         self.tool_registry = ToolRegistry(self.console, config["tools_dir"])
         self.tool_registry.load()
@@ -412,7 +416,7 @@ def main() -> None:
     while True:
         try:
             console.print()
-            user_input = input("👤 You > ").strip()
+            user_input = agent.input_session.prompt("👤 You > ").strip()
         except (KeyboardInterrupt, EOFError):
             console.print("\n[yellow]👋 再见![/yellow]")
             break
