@@ -17,3 +17,7 @@ max_iterations: 20
 
 # 是否自动确认危险操作 (执行命令、写入文件)
 auto_confirm: false
+
+# 工具目录（独立功能模块目录）
+# 只需要新增/删除 tools/*.py 即可扩展或替换能力
+tools_dir: "tools"
